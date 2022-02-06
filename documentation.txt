@@ -1,0 +1,286 @@
+This is the django blog app. 
+
+1. Global:
+    Location: 
+        DjangoBlogApp/
+            DjangoBlogApp/
+                global_files
+
+    urls.py
+        We add the global url patterns here.
+        'admin/'
+            go to the admin page.
+            admin.site.urls
+            admin comes from django.contrib
+        'login/'
+            go to login page, where we take username and password to login
+            auth_views.LoginView.as_view(template_name = 'users/login.html')
+        'logout/'
+            go to logout page, where it displays a message after logout
+            auth_views comes as:
+                from django.contrib.auth import views as auth_views
+        'register/'
+            register a new user.
+            goes to user_views.register() view.
+            user_views comes from:
+                from users import views as users_views
+        'profile/'
+            display the profile of a logged in user
+            goes to user_views.profile() view.
+        ''
+            If it is none of the above, just send the remaining chopped url to blog app urls.py .
+            include('blog.urls')
+        
+        adding static files to urlconf in debug mode.
+            If in debug mode, add the url pattern 'media/' to the urlconf,
+            so all images can be accessed from there.
+
+    settings.py
+        In INSTALLED_APPS add, blog.apps.BlogConfig, users.apps.UsersConfig,
+        crispy_forms.
+        STATIC_URL = '/static/'
+        MEDIA_ROOT = BASE_URL + '/media/'
+        MEDIA_URL = '/media/'
+
+        CRISPY_TEMPLATE_PACK = 'bootstrap4'
+        LOGIN_REDIRECT_URL = 'blog-home'
+        LOGIN_URL = 'login'
+
+        MEDIA_ROOT is the root of the media directory. We are mentioning that all media should reside inside the media folder at the root.
+        MEDIA_URL is how the url should appear inside the browser.
+        so pics will be shown with prefix, '/media/'
+    
+    asgi, wsgi
+        No change
+    
+2. media
+    Location:
+        DjangoBlogApp/
+            media/
+                profile_pics/
+                    sai lolla.jpg
+                default.jpg
+
+    media folder
+    Has all the pics to be used in the website.
+
+3. blog
+    Location:
+        DjangoBlogApp/
+            blog/
+                all files
+
+    models.py
+        Post model
+        Every Post has a
+            . title = charfield, max=100
+            . content = textfield
+            . date_posted = datetimefield, default = timezone.now()
+            . author = models.ForeignKey(User)
+                on author delete, delete all the posts by that author
+        User is a model provided by django
+            from django.contrib.auth.models import User
+        All the fields are available in django.db
+            from django.db import models
+            models.CharField() etc...
+        Timezone is available as: 
+            from django.utils import timezone
+    
+    urls.py
+        within the blog app,
+        '' - home page of the blog app. Handled with home()
+        'about/' - about section of the blog app. Handled with about()
+    
+    views.py
+        render(request, 'blog/<template_name>', context)
+        we pass the list of posts to the homepage template, using Post.objects.all()
+    
+    admin.py
+        registering a model onto admin page, makes it editable on the admin page.
+        from django.contrib import admin
+        admin.site.register(Post)
+    
+    migrations
+        It has all the migrations/changes made to the model.
+        using migrate command, we can apply these changes to the database tables.
+    
+    static
+        folder for all static files (.css, .js etc) of the blog app.
+        Structure:
+        blog/
+            static/
+                blog/
+                    main.css
+    
+    templates
+        this contains all the html templates for the blog app.
+        Structure:
+        blog/
+            templates/
+                blog/
+                    base.html
+                    home.html
+                    about.html
+    
+        Important notes:
+            {% load static %}
+            this loads the full path of the static directory, so that we can reference static files by saying, {% static 'blog/main.css' %}
+
+            {% url 'profile' %}
+            This is used to get the url of a particular path using its name.
+            eg. we had put a url pattern in urls.py as, 
+                path('profile/', users_views.profile, name='profile')
+            we can use the name of this path to generate a url pointing to it. Hence, {% url 'profile' %} => 'localhost:8000/profile'
+            can be used in <a> tags.
+
+            an user object is passed by default to all templates.
+            you can check if an user is logged in by using, 
+                {% if user.is_authenticated %}
+            
+            a messages object is also passed for alerts in django.
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            reserving space for content in a template
+            {% block block_name %}{% endblock %}
+            This acts like a placeholder for some content. You can insert content here using :
+            > home.html
+                {% extends 'blog/base.html' %}
+                {% block content %}
+                    <h1> This is some content </h1>
+                {% endblock %}
+
+                <!-- This inserts the h1 tag in the base.html and renders it -->
+            
+            We can also change format of things like date etc, using template language, like pipe ('|')
+                {{ post.date_posted|date:"F d, Y"}}
+                This prints date as: June 09, 2021
+
+4. users
+    forms.py
+        We create our own UserRegisterForm class, which extends UserCreationForm Class (from django.contrib.auth.forms import UserCreationForm)
+        we add an email field to the registeration form,
+            email = forms.EmailField()
+        Finally, we provide meta info, as to how the data should be arranged.
+        class Meta:
+            fields = ['username', 'email', 'password1', 'password2']
+            email we have defined.
+            username, password1 and password2 are available in the usercreationform.
+        Meta class gives additional info about how to present the data.
+
+        2 more modelForms, UserUpdateForm and ProfileUpdateForm have been added.
+        These forms are similar to registeration forms, except that these can update the data of model objects.
+    
+    models.py
+        Here, we define the Profile object
+        class Profile:
+            user = models.OneToOneField(User, on_delete=models.CASCADE)
+            ### this means, when user is deleted, delete the profile. But when profile is deleted, user wont be deleted.
+            image = models.ImageField(default='default.jpg', upload_to='profile_pics')
+
+            ## user.profile.image.url will provide url of the user profile image.
+        
+        A profile, is linked to an User Object, i.e. every user has a profile, and every profile mentions a user.
+        It also has a dp.
+        It will save all uploaded profile pictures to profile_pics folder.
+
+        We update the profile models save() functionality, so that we can do image compression for images uploaded by the user. We use the Image object of the PIL module, to acheive image compression.
+    
+    views.py
+        We create the register route.
+        if we open the register page simply, just display a blank form.
+        if the submit button was pressed, i.e register page received a post request, create a form with the entered data.
+        Next, check if the form submitted is valid. 
+        If it is valid, just save the data, i.e create a user.
+        Display a one time message, and redirect to login page.
+    
+        loginrequired decorator is used to ensure, only logged in users can go to their profile. So if you go to '/profile' before logging in, you will be redirected to 'login' page.
+        from django.contrib.auth.decorators import login_required
+
+        we also added a functionality, whereby users can update their profiles right at the profile page. We use modelForms to edit certain models.
+
+        Important Notes:
+            you can create messages as 
+                messages.success(request, 'Some message')
+                messages => from django.contrib import messages
+                There are 4 other types of messages available, like messages.danger, messages.error etc.
+            
+            redirect is available in django.shortcuts, just like render.
+    
+    admin.py
+        Here, we register the profile model, so that it can be updated in admin page.
+        admin.site.register(Profile)
+
+    signals.py
+        signals are like event handlers in django. They allow you to run some functions as soon as some event occurs.
+        Here, we use signals to create a default profile whenever a new user is created. Also we use signals to save a profile, whenever a user profile is saved (i.e any changes occur to a user profile).
+
+        post_save: This occurs when an object is saved.
+            eg. user.save()
+        @receiver decorator is used to assign a receiver (or event handler function) for an event. It takes two args: @receiver(signal_name, sender=ModelName)
+        create_profile(sender, instance, created, **kwargs)
+            sender is the model that sends the event, here it is User
+            instance, is the instance of the sender(user) object that is created.
+            created is a boolean, this is true if user object is created.
+        save_profile(sender, instance, **kwargs)
+            this will save a profile when any change occurs to the user.
+    
+    apps.py
+        here, we create a ready method under UsersApp class, just so that we can import those signals into the app. It's more like a registering event handlers.
+
+{% load crispy_forms_tags %} is used to load crispy form tags.        
+    
+CRUD Operations, class based views migration:
+    PostListView - it is a list view, which displays all the posts as a list.
+    We specify template name, model (the model on which it acts), context_object_name (i.e name of the object that is passed to the template) and ordering (latest first).
+
+    PostDetailView - it is a detail view, i.e it gives full details of a particular post object.
+    Here, we specify just the model, and let other things remain same.
+    Template name by default will be 'blog/post_detail.html'
+    context_object_name is by default 'object'
+
+    PostCreateView - we specify the model (object of which is created), fields on the form.
+    When we try to submit the form, it gives an error, that author name is not given.
+    so update the form_valid function, so it gets the author before saving.
+    form.instance.author = self.request.user
+    LoginRequiredMixin for classes is similar to @loginrequired decorator for functions. This will redirect to login page, incase a user is not logged in while creating a new post.
+
+    PostUpdateView - we specify the model (object of which needs to be updated), and fields on the form.
+    we use the same form_valid function, to set an author name to it.
+    test_func() is a test function that decides if a user is allowed to access certain page.
+    eg. a user can edit only his posts. If he tries to update someone elses posts, it will lead to a 403 forbidden error.
+    Both create and update view, use the 'post_form.html' template.
+    form object is the context_object that is passed
+
+    PostDeleteView - this is used to delete a post object. specify the model as always. Specify a success_url, this is where you are redirected, once an object is deleted.
+    The template for this is post_confirm_delete.html, and this is required to show a prompt, to confirm deletion or redirecting to post details.
+    This also has a test_func, just so that you cannot delete a post by another author.
+
+    get_absolute_url is required to know where should an update redirect.
+
+11: Pagination
+    from django.core.paginator import Paginator
+    p = Paginator(posts, 2)
+    p.num_pages
+    for page in p.page_range:
+        print(page)
+    p1 = p.page(1)  // returns first page 
+    p1.object_list  // ['1', '2']
+    p1.number       // 1
+    p1.has_previous()   //returns False
+    p1.has_next()       // returns True if it has next page
+
+    p1.next_page_number()   //2
+
+    To go to any page no. n,
+    just go to 'localhost:8000/?page=3'
+
+    if is_paginated is true if a certain page has pagination enabled.
+    page_obj is passed to the template. page_obj.paginator.num_pages gives total number of pages.
+
+    We also create a UserPostList view, that shows all the posts by some user. view.kwargs.username
